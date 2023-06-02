@@ -1,0 +1,18 @@
+{
+  "files": {
+    "main.css": "/todo/static/css/main.b0ad9d6c.css",
+    "main.js": "/todo/static/js/main.f4e383d9.js",
+    "static/js/787.28cb0dcd.chunk.js": "/todo/static/js/787.28cb0dcd.chunk.js",
+    "static/media/checkbox-active.svg": "/todo/static/media/checkbox-active.bb9749dd568b0f7c1976.svg",
+    "index.html": "/todo/index.html",
+    "static/media/close.svg": "/todo/static/media/close.773770ce13f9b3da9660.svg",
+    "static/media/checkbox-default.svg": "/todo/static/media/checkbox-default.f7e12fbb28ff5dcf4dff.svg",
+    "main.b0ad9d6c.css.map": "/todo/static/css/main.b0ad9d6c.css.map",
+    "main.f4e383d9.js.map": "/todo/static/js/main.f4e383d9.js.map",
+    "787.28cb0dcd.chunk.js.map": "/todo/static/js/787.28cb0dcd.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b0ad9d6c.css",
+    "static/js/main.f4e383d9.js"
+  ]
+}
