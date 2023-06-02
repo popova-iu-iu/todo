@@ -128,3 +128,15 @@
   background: url("../../public/icons/close.svg");
   background-size: 100%;
 }
+
+/* Extra Small Devices, Phones */
+@media only screen and (max-width: 480px) {
+  .todo__add-task {
+    flex-direction: column;
+  }
+
+  .todo__button-primary {
+    display: flex;
+    align-self: stretch;
+  }
+}
