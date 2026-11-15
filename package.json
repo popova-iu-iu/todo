@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Личная база знаний: красивые заметки из блоков по шаблонам, офлайн, с зашифрованным бэкапом в GitLab",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
