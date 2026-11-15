@@ -14,7 +14,7 @@
     });
     side.innerHTML=html;
   }
-  function show(){
+  function show(keepScroll){
     let id=(location.hash||'#home').slice(1); if(!pages[id]) id='home';
     const p=pages[id];
     AUDIO.stop();
@@ -28,12 +28,17 @@
     pg.innerHTML=(prev?`<a href="#${prev.id}"><small>Назад</small>${prev.title}</a>`:'<span></span>')+(next?`<a href="#${next.id}" style="text-align:right"><small>Дальше</small>${next.title}</a>`:'');
     page.appendChild(pg);
     main.innerHTML=''; main.appendChild(page);
+    if(window.MOBILE) MOBILE.enhance(page);
     side.querySelectorAll('a[data-id]').forEach(a=>a.classList.toggle('on',a.dataset.id===id));
     document.title=(p.id==='home'?'':p.title+' · ')+'Электронная музыка с нуля';
-    window.scrollTo(0,0); side.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false');
+    if(keepScroll!==true) window.scrollTo(0,0);
+    side.classList.remove('open'); menuBtn.setAttribute('aria-expanded','false');
   }
   menuBtn.addEventListener('click',()=>{ const o=side.classList.toggle('open'); menuBtn.setAttribute('aria-expanded',o); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') side.classList.remove('open'); });
-  window.addEventListener('hashchange',show);
+  window.addEventListener('hashchange',()=>show());
+  // поворот телефона: перерисовать страницу под новую ширину, не теряя место
+  let lastW=window.innerWidth, rt=0;
+  window.addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(()=>{ if(Math.abs(window.innerWidth-lastW)<40) return; lastW=window.innerWidth; const y=window.scrollY; show(true); window.scrollTo(0,y); },250); });
   nav(); show();
 })();

@@ -126,14 +126,16 @@ function synthLab(spec){
   const kb=h('div','scroll'); f.appendChild(kb);
   const from=NOTE.midi(spec.from||'C2'), to=NOTE.midi(spec.to||'C4');
   const whites=[]; for(let m=from;m<=to;m++) if(!NOTE.isBlack(m)) whites.push(m);
-  const ww=34,wh=120; const s=D.svg(whites.length*ww+2,wh+4); kb.appendChild(s);
+  const ww=D.narrow()?Math.max(10,Math.min(34,Math.floor((D.avail()-2)/whites.length))):34, wh=D.narrow()?Math.min(120,ww*4):120;
+  const bkw=Math.round(ww*0.65), bkh=Math.round(wh*0.62);
+  const s=D.svg(whites.length*ww+2,wh+4); kb.appendChild(s);
   const xOf={}; whites.forEach((m,i)=>xOf[m]=1+i*ww);
   const keyEls={};
   async function down(m){ await AUDIO.start(); const b=build(); b.voice().triggerAttack(AUDIO.hz(m),undefined,0.8); keyEls[m]&&keyEls[m].classList.add('kb-on'); }
   function up(m){ if(!built) return; const v=built.voice(); if(v===built.poly) v.triggerRelease(AUDIO.hz(m)); else v.triggerRelease(); keyEls[m]&&keyEls[m].classList.remove('kb-on'); }
   const bindKey=(r,m)=>{ r.addEventListener('pointerdown',e=>{ e.preventDefault(); down(m); }); r.addEventListener('pointerup',()=>up(m)); r.addEventListener('pointerleave',e=>{ if(e.buttons) up(m); }); keyEls[m]=r; };
-  whites.forEach(m=>{ const r=D.el('rect',{x:xOf[m],y:2,width:ww,height:wh,rx:3,class:'kb-w'},s); bindKey(r,m); if(m%12===0) D.el('text',{x:xOf[m]+ww/2,y:wh-6,'text-anchor':'middle',class:'kb-name'},s,NOTE.name(m)); });
-  for(let m=from;m<=to;m++){ if(!NOTE.isBlack(m)) continue; const r=D.el('rect',{x:xOf[m-1]+ww-11,y:2,width:22,height:74,rx:2,class:'kb-b'},s); bindKey(r,m); }
+  whites.forEach(m=>{ const r=D.el('rect',{x:xOf[m],y:2,width:ww,height:wh,rx:3,class:'kb-w'},s); bindKey(r,m); if(m%12===0 && ww>=14) D.el('text',{x:xOf[m]+ww/2,y:wh-6,'text-anchor':'middle',class:'kb-name'},s,NOTE.name(m)); });
+  for(let m=from;m<=to;m++){ if(!NOTE.isBlack(m)) continue; const r=D.el('rect',{x:xOf[m-1]+ww-bkw/2,y:2,width:bkw,height:bkh,rx:2,class:'kb-b'},s); bindKey(r,m); }
   // клавиатура компьютера
   const map={a:0,w:1,s:2,e:3,d:4,f:5,t:6,g:7,y:8,h:9,u:10,j:11,k:12,o:13,l:14,p:15};
   let focusIn=false; f.addEventListener('pointerenter',()=>focusIn=true); f.addEventListener('pointerleave',()=>focusIn=false);
@@ -217,14 +219,14 @@ function fxLab(spec){
 function arrangement(spec){
   const {f,addCap}=figure(spec.title,spec.cap);
   const tracks=spec.tracks, secs=spec.sections; const totalBars=secs.reduce((a,s)=>a+s[1],0);
-  const lw=110, bw=Math.max(4,Math.min(12,Math.floor(760/totalBars))), top=70, rh=22;
+  const nar=D.narrow(), lw=nar?80:110, bw=nar?Math.max(1.5,(D.avail()-lw-10)/totalBars):Math.max(4,Math.min(12,Math.floor(760/totalBars))), top=70, rh=22;
   const W=lw+totalBars*bw+10, H=top+tracks.length*rh+10;
   const s=D.svg(W,H);
   const colors=['var(--kick)','var(--bass)','var(--chord)','var(--lead)','var(--hat)','var(--perc)','var(--snare)','var(--note)'];
   let x=lw; const pts=[];
   secs.forEach(([name,bars,on,energy])=>{ const w=bars*bw;
     D.el('rect',{x,y:top-26,width:w-1,height:20,rx:3,class:'ab-zone-d'},s);
-    D.el('text',{x:x+4,y:top-12,class:'svg-text',style:'font-size:10px'},s,(w>50?name:name.slice(0,3))+(w>80?' · '+bars:''));
+    if(w>=22) D.el('text',{x:x+4,y:top-12,class:'svg-text',style:'font-size:10px'},s,(w>50?name:name.slice(0,3))+(w>80?' · '+bars:''));
     tracks.forEach((t,i)=>{ if(on.includes(i)) D.el('rect',{x:x+1,y:top+i*rh+3,width:w-3,height:rh-6,rx:3,fill:colors[i%colors.length],'fill-opacity':0.7},s); });
     pts.push([x,energy],[x+w,energy]); x+=w; });
   tracks.forEach((t,i)=>D.el('text',{x:4,y:top+i*rh+15,class:'svg-label'},s,t));
@@ -237,11 +239,11 @@ function arrangement(spec){
 // ——— частоты инструментов
 function freqChart(spec){
   const {f,addCap}=figure(spec.title||'Где звучат инструменты',spec.cap);
-  const items=spec.items; const lw=150, W=900, top=26, rh=24, H=top+items.length*rh+24;
-  const s=D.svg(W,H); s.setAttribute('width','100%'); s.removeAttribute('height'); s.style.height='auto'; s.style.minWidth='620px';
+  const nar=D.narrow(); const items=spec.items; const lw=nar?92:150, W=nar?D.avail():900, top=26, rh=24, H=top+items.length*rh+24;
+  const s=D.svg(W,H); s.setAttribute('width','100%'); s.removeAttribute('height'); s.style.height='auto'; if(!nar) s.style.minWidth='620px';
   const X=hz=>lw+(W-lw-20)*Math.log(hz/20)/Math.log(1000);
-  [[20,'20'],[60,'60'],[100,'100'],[250,'250'],[500,'500'],[1000,'1k'],[2000,'2k'],[5000,'5k'],[10000,'10k'],[20000,'20k Hz']].forEach(([hz,l])=>{ D.el('line',{x1:X(hz),y1:top-6,x2:X(hz),y2:H-20,class:'pr-line'},s); D.el('text',{x:X(hz),y:H-6,'text-anchor':'middle',class:'svg-muted'},s,l); });
-  [['саб',20,60],['низ',60,250],['низ-середина',250,500],['середина',500,2000],['верх-середина',2000,6000],['воздух',6000,20000]].forEach(([n,a,b])=>D.el('text',{x:(X(a)+X(b))/2,y:14,'text-anchor':'middle',class:'svg-muted'},s,n));
+  (nar?[[20,'20'],[100,'100'],[500,'500'],[2000,'2k'],[10000,'10k']]:[[20,'20'],[60,'60'],[100,'100'],[250,'250'],[500,'500'],[1000,'1k'],[2000,'2k'],[5000,'5k'],[10000,'10k'],[20000,'20k Hz']]).forEach(([hz,l])=>{ D.el('line',{x1:X(hz),y1:top-6,x2:X(hz),y2:H-20,class:'pr-line'},s); D.el('text',{x:X(hz),y:H-6,'text-anchor':'middle',class:'svg-muted'},s,l); });
+  (nar?[['низ',20,250],['середина',250,2000],['верх',2000,20000]]:[['саб',20,60],['низ',60,250],['низ-середина',250,500],['середина',500,2000],['верх-середина',2000,6000],['воздух',6000,20000]]).forEach(([n,a,b])=>D.el('text',{x:(X(a)+X(b))/2,y:14,'text-anchor':'middle',class:'svg-muted'},s,n));
   const colors=['var(--kick)','var(--bass)','var(--snare)','var(--hat)','var(--chord)','var(--lead)','var(--perc)','var(--note)'];
   items.forEach(([name,lo,hi,core],i)=>{ const y=top+i*rh;
     D.el('text',{x:4,y:y+15,class:'svg-label'},s,name);
@@ -266,11 +268,11 @@ function waves(spec){
 }
 
 // ——— огибающая (статичный рисунок)
-function env(spec){ const {f,addCap}=figure(spec.title,spec.cap); const box=h('div','scroll'); box.appendChild(adsrSvg(spec,520,150)); f.appendChild(box); addCap(); return f; }
+function env(spec){ const {f,addCap}=figure(spec.title,spec.cap); const box=h('div','scroll'); box.appendChild(adsrSvg(spec,D.narrow()?Math.min(520,D.avail()):520,150)); f.appendChild(box); addCap(); return f; }
 
 // ——— линия автоматизации под клипом
 function auto(spec){
-  const {f,addCap}=figure(spec.title,spec.cap); const W=760,H=120; const s=D.svg(W,H); s.setAttribute('width','100%'); s.removeAttribute('height'); s.style.height='auto'; s.style.minWidth='520px';
+  const nar=D.narrow(); const {f,addCap}=figure(spec.title,spec.cap); const W=nar?D.avail():760,H=120; const s=D.svg(W,H); s.setAttribute('width','100%'); s.removeAttribute('height'); s.style.height='auto'; if(!nar) s.style.minWidth='520px';
   const bars=spec.bars||8; for(let b=0;b<=bars;b++){ D.el('line',{x1:20+b*(W-40)/bars,y1:10,x2:20+b*(W-40)/bars,y2:H-20,class:b%4?'pr-beat':'pr-bar'},s); D.el('text',{x:24+b*(W-40)/bars,y:H-6,class:'svg-muted'},s,b<bars?String(b+1):''); }
   D.el('rect',{x:20,y:10,width:W-40,height:H-30,fill:'none',stroke:'var(--grid-strong)'},s);
   const P=spec.points.map(([x,y])=>[20+x*(W-40),10+(1-y)*(H-30)]);

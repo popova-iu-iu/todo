@@ -65,3 +65,43 @@ test('работает без интернета и ставится на экр
   expect(manifest.display).toBe('standalone');
   expect(manifest.short_name).toBe('Музыка');
 });
+
+test('на телефоне нигде нет прокрутки вбок', async ({ page }) => {
+  await page.goto('./');
+  const ids: string[] = await page.evaluate(() => (window as any).BOOK.order);
+  const bad: string[] = [];
+  for (const id of ['home', ...ids]) {
+    await page.evaluate((h) => (location.hash = h), '#' + id);
+    await expect(page.locator('main h1')).toBeVisible();
+    const over = await page.evaluate(() => {
+      const W = document.documentElement.clientWidth;
+      const out: string[] = [];
+      document.querySelectorAll('main *').forEach((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width && r.right > W + 1) out.push(`${el.tagName.toLowerCase()}.${(el as HTMLElement).className?.baseVal ?? (el as HTMLElement).className} → ${Math.round(r.right)}px`);
+      });
+      document.querySelectorAll('main .scroll').forEach((el) => { if (el.scrollWidth > el.clientWidth + 1) out.push('прокрутка в .scroll'); });
+      return out.slice(0, 3);
+    });
+    if (over.length) bad.push(`${id}: ${over.join('; ')}`);
+  }
+  expect(bad).toEqual([]);
+});
+
+test('большая схема открывается крупно и закрывается', async ({ page }) => {
+  await page.goto('./');
+  const ids: string[] = await page.evaluate(() => (window as any).BOOK.order);
+  for (const id of ids) {
+    await page.evaluate((h) => (location.hash = h), '#' + id);
+    if (await page.locator('.zoom-btn').count()) break;
+  }
+  const btn = page.locator('.zoom-btn').first();
+  await expect(btn).toBeVisible();
+  await btn.click();
+  await expect(page.locator('.zoomer svg')).toBeVisible();
+  const box = await page.locator('.zoomer svg').boundingBox();
+  expect(box!.width).toBeLessThanOrEqual(400);
+  await page.locator('.zclose').click();
+  await expect(page.locator('.zoomer')).toHaveCount(0);
+  await expect(btn).toBeVisible();
+});
