@@ -1,0 +1,73 @@
+/* документ заметки */
+.doc { padding: 24px 22px 60px; display: flex; flex-direction: column; gap: 18px; outline: none; caret-color: var(--sage); position: relative; -webkit-user-modify: read-write; }
+.doc:focus { outline: none; }
+.doc h1 { margin: 0; font-weight: 800; font-size: 30px; line-height: 1.15; letter-spacing: -.5px; }
+.doc h2 { margin: 8px 0 0; font-weight: 700; font-size: 21px; }
+.doc p { margin: 0; font-size: 17px; line-height: 1.6; color: #2A2D31; }
+.doc b, .doc strong { font-weight: 700; }
+.doc .e { outline: none; }
+.doc .e:focus { outline: none; }
+/* серая подсказка; float — чтобы курсор стоял в начале строки, а не после подсказки */
+[data-ph]:empty::before, [data-ph]:has(> br:only-child)::before { content: attr(data-ph); color: #80868E; pointer-events: none; float: left; height: 0; white-space: nowrap; max-width: 100%; overflow: visible; }
+.doc p:empty, .doc h1:empty, .doc h2:empty, .doc .e:empty { min-height: 1.4em; }
+.doc > * { position: relative; z-index: 1; background: #fff; touch-action: pan-y; }
+
+/* ссылка на заметку */
+.wl { color: var(--sage); font-weight: 600; border-bottom: 2px solid #A9CDB9; cursor: pointer; text-decoration: none; -webkit-user-modify: read-only; }
+
+/* выноска */
+.doc > .callout, .callout { display: flex; gap: 12px; border-radius: 16px; padding: 14px 16px; font-size: 15px; line-height: 1.5; }
+.callout > .e { flex: 1; min-width: 0; }
+.callout .ci { flex: none; font-weight: 800; }
+.doc > .callout.peach, .callout.peach { background: var(--peach); color: #5C3414; }
+.callout.peach .ci { color: var(--peach-i); }
+.doc > .callout.lav, .callout.lav { background: var(--lav); color: #262B66; }
+.callout.lav .ci { color: var(--lav-i); }
+.doc > .callout.sage, .callout.sage { background: var(--sage-t); color: #1D4A37; }
+.callout.sage .ci { color: var(--sage); }
+
+/* карточки */
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.card { border-radius: 16px; overflow: hidden; background: var(--bg); }
+.card .pic { height: 44px; }
+.card .cb { padding: 10px 12px 14px; }
+.card .ct { font-weight: 600; }
+.card .cd { font-size: 13px; margin-top: 3px; color: var(--muted); line-height: 1.4; }
+.c-lav { background: var(--lav); } .c-sand { background: var(--sand); } .c-peach { background: var(--peach); }
+.c-sage { background: var(--sage-t); } .c-gold { background: var(--gold); }
+
+/* список дел */
+.checklist { display: flex; flex-direction: column; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 16px; }
+.check input { width: 22px; height: 22px; accent-color: var(--sage); margin: 0; flex: none; }
+.check .e { flex: 1; min-width: 0; padding: 8px 0; line-height: 1.4; }
+.check input:checked + .e { color: var(--muted); text-decoration: line-through; }
+
+/* цитата */
+.quote { margin: 0; padding: 6px 0 6px 18px; border-left: 3px solid var(--sage); font-family: Manrope, sans-serif; font-size: 20px; font-weight: 600; line-height: 1.4; color: #2A2D31; }
+
+/* фото и галерея */
+.ph-photo { height: 160px; width: 100%; border-radius: 16px; background: var(--bg); border: 2px dashed #C9CDD3; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 15px; padding: 10px; }
+.photo img { display: block; width: 100%; border-radius: 16px; }
+.gallery { display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 90px 90px; gap: 8px; }
+.gallery > :first-child { grid-row: span 2; }
+.gallery .ph-photo, .gallery img { height: 100%; width: 100%; object-fit: cover; border-radius: 14px; display: block; }
+
+/* разделитель */
+.divider { display: flex; justify-content: center; gap: 10px; padding: 8px 0; }
+.divider i { width: 7px; height: 7px; border-radius: 4px; background: #A9CDB9; }
+
+/* настроение */
+.moods { display: flex; gap: 8px; }
+.mood { width: 48px; height: 48px; border-radius: 24px; border: 2px solid transparent; background: var(--bg); font-size: 24px; padding: 0; }
+.mood.on { border-color: var(--sage); background: var(--sage-t); }
+
+/* меню выделения */
+.selmenu { position: absolute; display: flex; background: var(--ink); border-radius: 14px; padding: 4px; gap: 2px; box-shadow: 0 8px 20px rgba(23,25,28,.25); z-index: 15; }
+.selmenu button { height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: #fff; font-size: 15px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.selmenu .b { font-weight: 800; }
+.selmenu .hd { font-family: Manrope, sans-serif; font-weight: 800; }
+.selmenu .go { background: var(--sage); font-weight: 600; }
+
+/* свайп-удаление */
+.swdel { position: absolute; z-index: 0; width: 78px; border: 0; border-radius: 14px; background: var(--red); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; opacity: 0; transition: opacity .15s; }

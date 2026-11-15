@@ -1,70 +1,79 @@
-# Getting Started with Create React App
+# Мои заметки — личная база знаний
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Как Obsidian, только проще и красивее. Заметки — не Markdown, а красивые страницы из блоков,
+собранные по шаблонам: путешествия, книги, рецепты, люди, фильмы, идеи, проекты, конспекты, дневник
+и свои шаблоны. Всё хранится на устройстве и работает без интернета. Резервная копия шифруется
+на телефоне и уходит в ваш приватный репозиторий GitLab.
 
-## Available Scripts
+Описание проекта — [`docs/SPEC.md`](docs/SPEC.md), эталон внешнего вида — [`docs/prototype.html`](docs/prototype.html).
 
-In the project directory, you can run:
+## Как пользоваться
 
-### `npm start`
+- **Главная** — плитки шаблонов. Нажмите плитку → откроется полка с большой кнопкой «+ Новая книга» и списком заметок.
+- **Заметка** — нажали на текст и пишете, сохраняется само. Серые подсказки исчезают при вводе.
+- **Выделите слово** — появится меню: **Жирный · Заголовок · Связать**. «Связать» превращает слово в ссылку на другую заметку; внизу обеих заметок появится строка «Связано».
+- **Кнопка «+»** справа внизу — 8 блоков: фото, заголовок, список дел, выноска, карточки, галерея, цитата, разделитель.
+- **Удалить блок** — смахните его влево и нажмите красную кнопку. 6 секунд можно нажать «Вернуть»; ещё 30 дней блок лежит в «Настройки → Недавно удалённое». Так же удаляется целая заметка — смахните её в списке на полке.
+- **Свой шаблон** — плитка «+ Новый шаблон» → название и цвет → соберите страницу из блоков, впишите подсказки → «Сохранить шаблон».
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Установка на iPhone
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+1. Откройте адрес приложения в **Safari** (см. «Публикация» ниже).
+2. Нажмите «Поделиться» → **«На экран „Домой“»**.
+3. Приложение откроется на весь экран и будет работать без интернета. Заметки хранятся на телефоне.
 
-### `npm test`
+## Резервная копия в GitLab
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Нужен **приватный** репозиторий только для копий (не тот, где лежит код).
 
-### `npm run build`
+1. На gitlab.com создайте новый пустой проект, видимость — **Private**.
+2. В проекте: Settings → Access tokens → Add new token. Роль **Maintainer**, право **`api`**, срок — какой удобно. Скопируйте токен (`glpat-…`).
+3. В приложении: шестерёнка → «Настроить копию» → адрес GitLab, путь проекта (`имя/репозиторий`) и токен.
+4. Придумайте пароль. Приложение покажет **ключ восстановления** — сохраните его (например, в «Пароли» на iPhone или на бумаге). **Без пароля и без этого ключа копию открыть нельзя никому.**
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Как это устроено:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Пароль никуда не отправляется. Из него (PBKDF2-SHA256, 600 000 итераций) получается ключ, которым «завёрнут» случайный мастер-ключ; ключ восстановления «заворачивает» его же.
+- Каждая заметка, свой шаблон и фото шифруются на устройстве (AES-256-GCM, WebCrypto). Имена файлов в репозитории — HMAC, по ним ничего не понять.
+- Копирование автоматическое (через ~20 секунд после изменений и при сворачивании приложения) и по кнопке «Сделать копию сейчас».
+- Каждая копия — коммит в git, поэтому есть история: «Восстановить из копии» возвращает все заметки на выбранную дату.
+- Тот же репозиторий — синхронизация между устройствами: на втором устройстве выберите «Восстановить из копии», укажите тот же репозиторий и пароль.
+- Токен хранится только на устройстве и в копию не попадает.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Публикация (GitLab Pages)
 
-### `npm run eject`
+Код приложения публикуется бесплатно на GitLab Pages — заметок там нет, только программа.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Создайте на GitLab проект для кода (можно публичный) и отправьте туда этот репозиторий.
+2. Файл [`.gitlab-ci.yml`](.gitlab-ci.yml) соберёт и опубликует приложение при каждом push в основную ветку.
+3. Адрес появится в Deploy → Pages (вида `https://имя.gitlab.io/репозиторий/`).
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Приложение использует относительные пути, поэтому работает на любом адресе.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Разработка
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # юнит-тесты: шифрование, очистка HTML, заметки, бэкап (с имитацией GitLab)
+npm run e2e        # сборка + проверки в браузере с эмуляцией iPhone
+npm run build      # сборка в dist/
+```
 
-## Learn More
+Устройство кода:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| Папка | Что там |
+|---|---|
+| `src/store/` | слой хранения: интерфейс `Store`, реализация на IndexedDB. Для версии на Mac (Tauri) достаточно добавить реализацию поверх файлов. |
+| `src/model/` | заметки, ссылки, корзина, поиск, шаблоны |
+| `src/templates/` | 10 встроенных шаблонов и общие блоки |
+| `src/editor/` | редактор: меню выделения, блоки «+», ссылки, свайп-удаление, фото |
+| `src/screens/` | экраны: главная, полка, заметка, настройки, настройка копии, восстановление, карта связей |
+| `src/crypto/` | ключи и шифрование |
+| `src/backup/` | GitLab API, синхронизация, автокопирование |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Весь HTML заметок очищается DOMPurify при сохранении и при загрузке из копии; вставка из буфера — только как текст.
 
-### Code Splitting
+## Что пока не сделано
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Из раздела «Ещё не решено» описания: обрезка и подписи к фото, тёмная тема, перестановка блоков. Упаковка в Tauri для Mac — следующий этап.
