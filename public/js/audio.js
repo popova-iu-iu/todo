@@ -126,5 +126,7 @@
     const was=current; current=null; tick=null;
     if(was) listeners.forEach(f=>f(null));
   }
-  window.AUDIO={start,hz,onStop:f=>stopHooks.add(f),play,stop,previewNote,previewChord,previewDrum,onChange:f=>listeners.add(f),current:()=>current,midi};
+  // звук уже включён (на iPhone — только после первого касания)
+  const running=()=>!!window.Tone && Tone.getContext().state==='running';
+  window.AUDIO={start,running,hz,onStop:f=>stopHooks.add(f),play,stop,previewNote,previewChord,previewDrum,onChange:f=>listeners.add(f),current:()=>current,midi};
 })();

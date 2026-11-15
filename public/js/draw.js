@@ -3,6 +3,9 @@
   const NS='http://www.w3.org/2000/svg';
   function svg(w,h){ const s=document.createElementNS(NS,'svg'); s.setAttribute('viewBox',`0 0 ${w} ${h}`); s.setAttribute('width',w); s.setAttribute('height',h); s.setAttribute('role','img'); return s; }
   function el(tag,attrs,parent,text){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(text!=null) e.textContent=text; if(parent) parent.appendChild(e); return e; }
+  // Телефон: рисунки подстраиваются под ширину экрана, без прокрутки вбок.
+  function narrow(){ return window.innerWidth<=900; }
+  function avail(){ return Math.max(260,Math.min(document.documentElement.clientWidth,1000)-64); }
   function badge(g,x,y,label,r){ r=r||11; el('circle',{cx:x,cy:y,r,class:'badge-c'},g); el('text',{x,y:y+4,'text-anchor':'middle',class:'badge-t'},g,label); }
   const COLORS={note:'var(--note)',bass:'var(--bass)',sub:'var(--bass)',reese:'var(--bass)',chord:'var(--chord)',pad:'var(--chord)',keys:'var(--chord)',lead:'var(--lead)',pluck:'var(--lead)'};
 
@@ -22,35 +25,45 @@
   function padOf(note){ const m=NOTE.midi(note); if(m>=36&&m<=43) return String(m-35); return '—'; }
 
   function drumGrid(rows,o){
-    o=o||{}; const steps=(o.bars||1)*16; const cw=steps<=16?30:steps<=32?20:12, ch=28, lw=176, top=22;
-    const W=lw+steps*cw+2, H=top+rows.length*ch+2;
+    o=o||{}; const steps=(o.bars||1)*16, nar=narrow();
+    // на телефоне: узкая колонка названий и по одному такту в строке
+    let lw=176, cw=steps<=16?30:steps<=32?20:12, per=steps;
+    if(nar){ lw=86; per=Math.min(16,steps); cw=Math.max(12,Math.min(30,Math.floor((avail()-lw-2)/per))); }
+    const ch=28, top=22, lines=Math.ceil(steps/per), gap=lines>1?12:0, lineH=top+rows.length*ch+gap;
+    const W=lw+per*cw+2, H=lines*lineH-gap+2;
+    const cx=i=>lw+(i%per)*cw, ly=i=>Math.floor(i/per)*lineH;
     const s=svg(W,H);
-    for(let i=0;i<steps;i+=4){ const lab=(Math.floor(i/16)+1)+(i%16? '.'+(i%16/4+1):''); el('text',{x:lw+i*cw+3,y:14,class:'svg-muted'},s,lab); }
+    for(let L=0;L<lines;L++){
+      const y0=L*lineH;
+      if(lines>1) el('text',{x:0,y:y0+14,class:'svg-text',style:'font-weight:500'},s,'Такт '+(L+1));
+      for(let j=0;j<per;j+=4){ const i=L*per+j; const lab=(Math.floor(i/16)+1)+(i%16? '.'+(i%16/4+1):''); el('text',{x:lw+j*cw+3,y:y0+14,class:'svg-muted'},s,lab); }
+    }
     const ph=el('rect',{x:lw,y:top,width:cw,height:rows.length*ch,class:'ph',visibility:'hidden'},s);
-    rows.forEach((r,ri)=>{
-      const k=KIT[r.sound]; const y=top+ri*ch;
+    for(let L=0;L<lines;L++) rows.forEach((r,ri)=>{
+      const k=KIT[r.sound]; const y=L*lineH+top+ri*ch;
       const lab=el('g',{style:'cursor:pointer'},s);
       el('rect',{x:0,y:y+3,width:6,height:ch-6,fill:k.c,rx:2},lab);
-      el('text',{x:12,y:y+13,class:'svg-label'},lab,k.ru+' · '+k.en);
-      el('text',{x:12,y:y+24,class:'svg-muted'},lab,k.note+'  ·  пэд '+padOf(k.note));
+      el('text',{x:12,y:y+13,class:'svg-label'},lab,nar?k.ru:k.ru+' · '+k.en);
+      el('text',{x:12,y:y+24,class:'svg-muted'},lab,nar?k.note+' · пэд '+padOf(k.note):k.note+'  ·  пэд '+padOf(k.note));
       lab.addEventListener('click',()=>AUDIO.previewDrum(r.sound));
-      const titleEl=el('title',{},lab,'Нажми, чтобы услышать');
-      for(let i=0;i<steps;i++){
-        const c=el('rect',{x:lw+i*cw+1,y:y+2,width:cw-2,height:ch-4,rx:3,class:'dg-cell'+(Math.floor(i/4)%2?'':' beat')},s);
+      el('title',{},lab,'Нажми, чтобы услышать');
+      for(let j=0;j<per;j++){
+        const i=L*per+j;
+        const c=el('rect',{x:cx(i)+1,y:y+2,width:cw-2,height:ch-4,rx:3,class:'dg-cell'+(Math.floor(i/4)%2?'':' beat')},s);
         c.dataset.i=i;
         if(o.editable!==false) c.addEventListener('click',()=>{ const at=r.hits.indexOf(i); if(at>=0) r.hits.splice(at,1); else { r.hits.push(i); AUDIO.previewDrum(r.sound);} paint(); o.onChange&&o.onChange(); });
       }
     });
-    for(let b=1;b<(o.bars||1);b++) el('line',{x1:lw+b*16*cw,y1:top-4,x2:lw+b*16*cw,y2:H,class:'pr-bar'},s);
+    if(per===steps) for(let b=1;b<(o.bars||1);b++) el('line',{x1:lw+b*16*cw,y1:top-4,x2:lw+b*16*cw,y2:H,class:'pr-bar'},s);
     const hitLayer=el('g',{'pointer-events':'none'},s);
     function paint(){
       hitLayer.innerHTML='';
-      rows.forEach((r,ri)=>{ const k=KIT[r.sound]; const y=top+ri*ch;
-        r.hits.forEach(i=>{ const v=(r.vel&&r.vel[i])||1; el('rect',{x:lw+i*cw+3,y:y+4,width:cw-6,height:ch-8,rx:3,fill:k.c,'fill-opacity':0.35+0.65*v},hitLayer);
-          if(r.vel&&r.vel[i]&&r.vel[i]<1 && cw>=20) el('text',{x:lw+i*cw+cw/2,y:y+ch/2+4,'text-anchor':'middle',class:'svg-muted',style:'fill:var(--ink)'},hitLayer,Math.round(r.vel[i]*127)); }); });
+      rows.forEach((r,ri)=>{ const k=KIT[r.sound];
+        r.hits.forEach(i=>{ const y=ly(i)+top+ri*ch; const v=(r.vel&&r.vel[i])||1; el('rect',{x:cx(i)+3,y:y+4,width:cw-6,height:ch-8,rx:3,fill:k.c,'fill-opacity':0.35+0.65*v},hitLayer);
+          if(r.vel&&r.vel[i]&&r.vel[i]<1 && cw>=20) el('text',{x:cx(i)+cw/2,y:y+ch/2+4,'text-anchor':'middle',class:'svg-muted',style:'fill:var(--ink)'},hitLayer,Math.round(r.vel[i]*127)); }); });
     }
     paint();
-    return {el:s,setStep(st){ if(st==null){ph.setAttribute('visibility','hidden');return;} ph.setAttribute('visibility','visible'); ph.setAttribute('x',lw+st*cw); },repaint:paint};
+    return {el:s,setStep(st){ if(st==null){ph.setAttribute('visibility','hidden');return;} ph.setAttribute('visibility','visible'); ph.setAttribute('x',cx(st)); ph.setAttribute('y',ly(st)+top); },repaint:paint};
   }
 
   // ——— Пиано-ролл. notes: [['A1', start16, len16, vel], ...]
@@ -59,8 +72,11 @@
     const ms=notes.map(n=>NOTE.midi(n[0]));
     let lo=o.lo!=null?NOTE.midi(o.lo):Math.min(...ms)-2, hi=o.hi!=null?NOTE.midi(o.hi):Math.max(...ms)+2;
     if(hi-lo<7){ const pad=Math.ceil((7-(hi-lo))/2); lo-=pad; hi+=pad; }
-    const rows=hi-lo+1, rh=o.rowH||18, kw=26, lw=kw+40, top=22;
-    const cw=o.cw||(bars===1?36:bars===2?22:bars<=4?14:8);
+    const nar=narrow();
+    const rows=hi-lo+1, rh=o.rowH||18, kw=nar?22:26, lw=kw+(nar?30:40), top=22;
+    let cw=o.cw||(bars===1?36:bars===2?22:bars<=4?14:8);
+    // на телефоне весь клип помещается в ширину экрана
+    if(nar && lw+steps*cw+2>avail()) cw=Math.max(2,(avail()-lw-2)/steps);
     const W=lw+steps*cw+2, H=top+rows*rh+2;
     const s=svg(W,H);
     const color=COLORS[o.color||'note']||o.color;
@@ -89,8 +105,10 @@
   // ——— Клавиатура. marks: {'A1':'1', 'C2':true}
   function keyboard(o){
     const a=NOTE.midi(o.from||'C3'), b=NOTE.midi(o.to||'C5');
-    const ww=o.ww||34, wh=o.wh||128, bw=Math.round(ww*0.62), bh=Math.round(wh*0.62);
     const whites=[]; for(let m=a;m<=b;m++) if(!NOTE.isBlack(m)) whites.push(m);
+    let ww=o.ww||34, wh=o.wh||128;
+    if(narrow() && whites.length*ww+2>avail()){ ww=Math.max(6,Math.floor((avail()-2)/whites.length)); wh=Math.min(wh,Math.round(ww*4)); }
+    const bw=Math.round(ww*0.62), bh=Math.round(wh*0.62), showNames=ww>=14;
     const top=o.minilab?26:4;
     const W=whites.length*ww+2, H=top+wh+4+(o.marks?14:0);
     const s=svg(W,H);
@@ -101,13 +119,13 @@
       const on=markM[m]!=null; const x=xOf[m];
       const r=el('rect',{x,y:top,width:ww,height:wh,rx:3,class:'kb-w'+(on?' kb-on':'')},s);
       r.addEventListener('click',()=>AUDIO.previewNote(m,o.voice||'keys'));
-      if(o.names!==false && (m%12===0 || on)) el('text',{x:x+ww/2,y:top+wh-8,'text-anchor':'middle',class:'kb-name'+(on?' kb-name-on':'')},s,NOTE.name(m));
-      if(o.ru && (on||o.ru==='all')) el('text',{x:x+ww/2,y:top+wh-21,'text-anchor':'middle',class:'kb-name'+(on?' kb-name-on':'')},s,NOTE.ru(m));
+      if(o.names!==false && showNames && (m%12===0 || on)) el('text',{x:x+ww/2,y:top+wh-8,'text-anchor':'middle',class:'kb-name'+(on?' kb-name-on':'')},s,NOTE.name(m));
+      if(o.ru && showNames && (on||o.ru==='all')) el('text',{x:x+ww/2,y:top+wh-21,'text-anchor':'middle',class:'kb-name'+(on?' kb-name-on':'')},s,NOTE.ru(m));
     });
     for(let m=a;m<=b;m++){ if(!NOTE.isBlack(m)) continue; const x=xOf[m-1]+ww-bw/2; const on=markM[m]!=null;
       const r=el('rect',{x,y:top,width:bw,height:bh,rx:2,class:'kb-b'+(on?' kb-on':'')},s);
       r.addEventListener('click',()=>AUDIO.previewNote(m,o.voice||'keys'));
-      if(on) el('text',{x:x+bw/2,y:top+bh-6,'text-anchor':'middle',class:'kb-name kb-name-on',style:'font-size:8px'},s,NOTE.name(m)); }
+      if(on && showNames) el('text',{x:x+bw/2,y:top+bh-6,'text-anchor':'middle',class:'kb-name kb-name-on',style:'font-size:8px'},s,NOTE.name(m)); }
     for(const m in markM){ const v=markM[m]; if(v===true) continue; const mm=+m; const black=NOTE.isBlack(mm);
       const x=black? xOf[mm-1]+ww : xOf[mm]+ww/2; badge(s,x,top+(black?bh+14:wh-40),String(v),10); }
     return {el:s};
@@ -115,16 +133,20 @@
 
   // ——— Устройство Ableton с ручками. sections:[{name, params:[{l, v, p, m}]}]
   function device(o){
-    const kw=78, head=26, kh=96, gap=10;
-    let x=gap; const pos=[]; o.sections.forEach(sec=>{ const w=Math.max(sec.params.length*kw,110); pos.push({x,w}); x+=w+gap; });
-    const W=x, H=head+22+kh+8;
+    const kw=78, head=26, kh=96, gap=10, rowH=22+kh;
+    // разбить секции на куски и разложить по рядам, чтобы ряд помещался в ширину
+    const maxW=narrow()?avail():Infinity, perRow=Math.max(1,Math.floor((maxW-2*gap)/kw));
+    const pieces=[]; o.sections.forEach(sec=>{ for(let i=0;i<sec.params.length;i+=perRow) pieces.push({name:i?'':sec.name,params:sec.params.slice(i,i+perRow)}); });
+    const pos=[]; let x=gap, row=0, W=0;
+    pieces.forEach(pc=>{ const w=Math.max(pc.params.length*kw,110); if(x>gap && x+w+gap>maxW){ row++; x=gap; } pos.push({x,w,row}); x+=w+gap; W=Math.max(W,x); });
+    const H=head+(row+1)*rowH+8;
     const s=svg(W,H);
     el('rect',{x:0.5,y:0.5,width:W-1,height:H-1,rx:6,class:'dev-bg'},s);
     el('rect',{x:0.5,y:0.5,width:W-1,height:head,rx:6,class:'dev-head'},s);
     el('text',{x:10,y:17,class:'svg-text',style:'font-weight:500'},s,o.name+(o.sub?'  ·  '+o.sub:''));
-    o.sections.forEach((sec,si)=>{ const P=pos[si];
-      el('text',{x:P.x,y:head+16,class:'svg-muted',style:'text-transform:uppercase;letter-spacing:.05em'},s,sec.name);
-      sec.params.forEach((p,pi)=>{ const cx=P.x+pi*kw+kw/2, cy=head+22+34, r=20;
+    pieces.forEach((sec,si)=>{ const P=pos[si], y0=head+P.row*rowH;
+      el('text',{x:P.x,y:y0+16,class:'svg-muted',style:'text-transform:uppercase;letter-spacing:.05em'},s,sec.name);
+      sec.params.forEach((p,pi)=>{ const cx=P.x+pi*kw+kw/2, cy=y0+22+34, r=20;
         if(p.choice){ el('rect',{x:cx-32,y:cy-14,width:64,height:28,rx:4,class:'knob-cap'},s); el('text',{x:cx,y:cy+4,'text-anchor':'middle',class:'svg-text',style:'font-weight:500'},s,p.v); }
         else {
           const a0=-225, a1=45; const ang=a0+(a1-a0)*(p.p||0);
@@ -219,5 +241,5 @@
     return {el:s};
   }
 
-  window.DRAW={drumGrid,pianoRoll,keyboard,device,minilab,ableton,KIT,padOf,svg,el,badge};
+  window.DRAW={narrow,avail,drumGrid,pianoRoll,keyboard,device,minilab,ableton,KIT,padOf,svg,el,badge};
 })();
