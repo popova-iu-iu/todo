@@ -26,7 +26,7 @@ export async function settingsScreen(): Promise<Screen> {
   const drawStatus = (s: BackupStatus) => {
     const busy = s.state === 'syncing';
     let icon = icons.check, cls = '', title = 'Всё сохранено', sub = s.lastAt ? `Последняя копия: ${whenFull(s.lastAt)}` : 'Копий пока не было';
-    if (s.state === 'off') { icon = icons.lock; cls = 'off'; title = 'Копия не настроена'; sub = 'Заметки хранятся только на этом устройстве. Настройте зашифрованную копию в GitLab — так их можно будет вернуть и открыть на Mac.'; }
+    if (s.state === 'off') { icon = icons.lock; cls = 'off'; title = 'Копия не настроена'; sub = 'Заметки хранятся только на этом устройстве. Настройте зашифрованную копию в GitHub — так их можно будет вернуть и открыть на Mac.'; }
     else if (busy) { title = 'Копирую…'; sub = 'Шифрую и отправляю'; }
     else if (s.state === 'offline') { icon = icons.cloudOff; cls = 'warn'; title = 'Нет интернета'; sub = 'Скопирую, когда появится связь.' + (s.lastAt ? ` Последняя копия: ${whenFull(s.lastAt)}` : ''); }
     else if (s.state === 'error') { icon = icons.warn; cls = 'warn'; title = 'Не получилось сделать копию'; sub = s.error || ''; }
@@ -42,7 +42,7 @@ export async function settingsScreen(): Promise<Screen> {
     rows.innerHTML = `
       <div class="setrow"><div class="ic">${icons.sync}</div><div class="tx">Копировать автоматически<small>после каждого изменения</small></div><button class="switch" role="switch" aria-checked="${s.auto}" aria-label="Копировать автоматически" data-auto ${s.state === 'off' ? 'disabled' : ''}></button></div>
       <div class="setrow"><div class="ic">${icons.lock}</div><div class="tx">${s.state === 'off' ? 'Шифрование' : 'Зашифровано'}<small>${s.state === 'off' ? 'включится при настройке копии' : 'открыть можно только вашим паролем'}</small></div></div>
-      <button class="setrow" data-gitlab><div class="ic">${icons.box}</div><div class="tx">GitLab<small>${s.project ? 'приватное хранилище · ' + esc(s.project) : 'не подключено'}</small></div><span class="go" aria-hidden="true">›</span></button>
+      <button class="setrow" data-remote><div class="ic">${icons.box}</div><div class="tx">GitHub<small>${s.project ? 'приватное хранилище · ' + esc(s.project) : 'не подключено'}</small></div><span class="go" aria-hidden="true">›</span></button>
       <div class="setrow"><div class="ic">${icons.devices}</div><div class="tx">Устройства<small>${devs || 'Mac и iPhone — заметки одинаковые'}</small></div></div>`;
   };
   const unsub = ctx.backup.subscribe(drawStatus);
@@ -76,7 +76,7 @@ export async function settingsScreen(): Promise<Screen> {
       await ctx.backup.setAuto(on);
       return toast(on ? 'Автокопирование включено' : 'Автокопирование выключено');
     }
-    if (t.closest('[data-gitlab]')) return ctx.backup.configured ? gitlabSheet() : navigate('setup');
+    if (t.closest('[data-remote]')) return ctx.backup.configured ? remoteSheet() : navigate('setup');
     const un = t.closest<HTMLElement>('[data-untrash]');
     if (un) {
       const item = (await listTrash(ctx.store)).find((x) => x.id === un.dataset.untrash);
@@ -90,15 +90,15 @@ export async function settingsScreen(): Promise<Screen> {
   return { el, leave: () => { unsub(); } };
 }
 
-function gitlabSheet() {
+function remoteSheet() {
   const s = ctx.backup.status;
   const box = html(`<div style="display:flex;flex-direction:column;gap:14px">
-    <h3>GitLab</h3>
-    <div class="t-sub">Копии хранятся в приватном репозитории <b>${esc(s.project || '')}</b>. Файлы зашифрованы на этом устройстве — в GitLab видны только непонятные имена и байты.</div>
+    <h3>GitHub</h3>
+    <div class="t-sub">Копии хранятся в приватном репозитории <b>${esc(s.project || '')}</b>. Файлы зашифрованы на этом устройстве — в GitHub видны только непонятные имена и байты.</div>
     <button class="btn danger" data-off>Отключить на этом устройстве</button>
-    <div class="hint">Заметки на устройстве и копии в GitLab останутся. Подключиться снова можно в любой момент — понадобится пароль.</div>
+    <div class="hint">Заметки на устройстве и копии в GitHub останутся. Подключиться снова можно в любой момент — понадобится пароль.</div>
   </div>`);
-  const close = openSheet(box, { label: 'GitLab' });
+  const close = openSheet(box, { label: 'GitHub' });
   box.addEventListener('click', async (e) => {
     if (!(e.target as HTMLElement).closest('[data-off]')) return;
     await ctx.backup.disconnect();

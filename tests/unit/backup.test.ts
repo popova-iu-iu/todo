@@ -4,12 +4,12 @@ import { createDraft, deleteNote, getNote, listNotes, saveNote } from '../../src
 import { saveCustomTemplate } from '../../src/model/templates';
 import { BUILTIN } from '../../src/templates/builtin';
 import { createKeys, unlockWithPassword, unlockWithRecovery } from '../../src/crypto/keys';
-import { GitLab } from '../../src/backup/gitlab';
+import { GitHub } from '../../src/backup/github';
 import { readKeyFile, restoreVersion, sync, versions, writeKeyFile } from '../../src/backup/engine';
 import { BackupService } from '../../src/backup/service';
-import { mockGitlab } from './mockGitlab';
+import { mockGithub } from './mockGithub';
 
-const cfg = { url: 'https://gitlab.example', project: 'me/backup', token: 'good-token' };
+const cfg = { repo: 'me/backup', token: 'good-token' };
 const tpl = (id: string) => BUILTIN.find((t) => t.id === id)!;
 const phone = { id: 'p', name: 'iPhone' };
 const mac = { id: 'm', name: 'Mac' };
@@ -21,14 +21,14 @@ async function note(store: ReturnType<typeof createMemoryStore>, title: string, 
 }
 
 async function setup() {
-  const gl = mockGitlab();
-  const api = new GitLab(cfg, gl.fetchFn);
+  const gl = mockGithub();
+  const api = new GitHub(cfg, gl.fetchFn);
   const { keyFile, keys, recoveryKey } = await createKeys('мой пароль', 2000);
   await writeKeyFile(api, keyFile, false);
   return { gl, api, keys, recoveryKey };
 }
 
-describe('бэкап в GitLab', () => {
+describe('бэкап в GitHub', () => {
   it('в репозитории только зашифрованное: ни названий, ни текста, ни id', async () => {
     const { gl, api, keys } = await setup();
     const store = createMemoryStore();
@@ -91,10 +91,10 @@ describe('бэкап в GitLab', () => {
     const store = createMemoryStore();
     await note(store, 'Раз');
     await sync(store, api, keys, phone);
-    const before = gl.commits.length;
+    const before = gl.commitCount();
     const r = await sync(store, api, keys, phone);
     expect(r.uploaded).toBe(0);
-    expect(gl.commits.length).toBe(before);
+    expect(gl.commitCount()).toBe(before);
   });
 
   it('восстановление на дату из истории', async () => {
@@ -118,9 +118,34 @@ describe('бэкап в GitLab', () => {
   });
 
   it('понятные ошибки доступа', async () => {
-    const gl = mockGitlab();
-    await expect(new GitLab({ ...cfg, token: 'bad' }, gl.fetchFn).project()).rejects.toThrow(/токен/);
-    await expect(new GitLab({ ...cfg, project: 'me/other' }, gl.fetchFn).project()).rejects.toThrow(/не найден/);
+    const gl = mockGithub();
+    await expect(new GitHub({ ...cfg, token: 'bad' }, gl.fetchFn).project()).rejects.toThrow(/токен/);
+    await expect(new GitHub({ ...cfg, repo: 'me/other' }, gl.fetchFn).project()).rejects.toThrow(/не найден/);
+  });
+
+  it('пустой репозиторий и одновременная запись с другого устройства', async () => {
+    const gl = mockGithub();
+    const api = new GitHub({ ...cfg, repo: 'https://github.com/me/backup.git' }, gl.fetchFn);
+    expect((await api.project()).private).toBe(true);
+    expect(await api.read('keys.json')).toBeNull(); // пустой репозиторий
+    const { keyFile, keys } = await createKeys('пароль', 2000);
+    await writeKeyFile(api, keyFile, false);
+    expect(await readKeyFile(api)).toEqual(keyFile);
+    const store = createMemoryStore();
+    await note(store, 'Раз');
+    // первая попытка коммита наткнётся на чужой коммит — движок должен повторить
+    const orig = gl.fetchFn;
+    let bumped = false;
+    const racy = (async (u: any, i: any) => {
+      if (!bumped && String(u).endsWith('/git/refs/heads/main') && i?.method === 'PATCH') { bumped = true; gl.bumpHead(); }
+      return orig(u, i);
+    }) as typeof fetch;
+    const r = await sync(store, new GitHub(cfg, racy), keys, phone);
+    expect(bumped).toBe(true);
+    expect(r.uploaded).toBe(1);
+    const other = createMemoryStore();
+    await sync(other, api, keys, mac);
+    expect((await listNotes(other)).map((n) => n.title)).toEqual(['Раз']);
   });
 
   it('служба: изменения помечают «есть несохранённое», копия снимает пометку', async () => {

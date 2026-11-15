@@ -1,6 +1,6 @@
 import { ctx } from '../app';
 import { readKeyFile, writeKeyFile } from '../backup/engine';
-import { GitLab, type GitLabConfig } from '../backup/gitlab';
+import { GitHub, normalizeRepo, type GitHubConfig } from '../backup/github';
 import { createKeys, unlockWithPassword, unlockWithRecovery, WrongSecret, type KeyFile, type Keys } from '../crypto/keys';
 import { back, navigate, type Screen } from '../router';
 import { $, esc, html } from '../ui/dom';
@@ -9,33 +9,32 @@ import { toast } from '../ui/overlay';
 
 /**
  * Настройка копии (и подключение второго устройства):
- * 1) GitLab: адрес, проект, токен → проверка доступа;
+ * 1) GitHub: репозиторий и токен → проверка доступа;
  * 2а) копии ещё нет → придумать пароль → ключ восстановления → первая копия;
  * 2б) копия уже есть → ввести пароль (или ключ восстановления) → заметки скачиваются.
  */
 export async function setupScreen(): Promise<Screen> {
   const el = html(`<section class="screen" aria-label="Настройка копии">
-    <div class="top"><button class="pill light" data-back style="align-self:flex-start">${icons.back}Назад</button><h1 class="h1" style="font-size:28px">Копия в GitLab</h1></div>
+    <div class="top"><button class="pill light" data-back style="align-self:flex-start">${icons.back}Назад</button><h1 class="h1" style="font-size:28px">Копия в GitHub</h1></div>
     <div class="scroll"><div class="form"></div></div>
   </section>`);
   const form = $('.form', el)!;
-  const saved = (await ctx.store.kv.get<GitLabConfig>('gitlab')) || null;
-  let cfg: GitLabConfig = saved || { url: 'https://gitlab.com', project: '', token: '' };
-  let gl: GitLab;
+  const saved = (await ctx.store.kv.get<GitHubConfig>('github')) || null;
+  let cfg: GitHubConfig = saved || { repo: '', token: '' };
+  let gl: GitHub;
   let keyFile: KeyFile | null = null;
 
   const busy = (b: HTMLButtonElement, text: string) => { const old = b.innerHTML; b.disabled = true; b.textContent = text; return () => { b.disabled = false; b.innerHTML = old; }; };
   const showErr = (msg: string) => { const e = $('.err', form); if (e) e.textContent = msg; };
 
-  // ---------- шаг 1: GitLab ----------
-  const stepGitlab = () => {
+  // ---------- шаг 1: GitHub ----------
+  const stepRemote = () => {
     form.innerHTML = `
-      <div class="t-sub">Заметки шифруются здесь, на телефоне, и отправляются в ваш <b>приватный</b> репозиторий. Он же нужен, чтобы те же заметки были на Mac.</div>
+      <div class="t-sub">Заметки шифруются здесь, на телефоне, и отправляются в ваш <b>приватный</b> репозиторий на GitHub. Он же нужен, чтобы те же заметки были на Mac.</div>
       <div class="card-w">
-        <label class="field"><span>Адрес GitLab</span><input class="input" name="url" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.url)}"></label>
-        <label class="field"><span>Репозиторий</span><input class="input" name="project" placeholder="имя/zametki-backup" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.project)}"></label>
-        <label class="field"><span>Токен доступа</span><input class="input" name="token" type="password" placeholder="glpat-…" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" value="${esc(cfg.token)}"></label>
-        <div class="hint">Как получить: в GitLab создайте <b>приватный</b> проект → Settings → Access tokens → новый токен с ролью Maintainer и правом <b>api</b>. Токен хранится только на этом устройстве.</div>
+        <label class="field"><span>Репозиторий</span><input class="input" name="repo" placeholder="имя/zametki-backup" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(cfg.repo)}"></label>
+        <label class="field"><span>Токен доступа</span><input class="input" name="token" type="password" placeholder="github_pat_…" autocapitalize="off" autocorrect="off" spellcheck="false" autocomplete="off" value="${esc(cfg.token)}"></label>
+        <div class="hint">Как получить: на GitHub создайте <b>приватный</b> репозиторий → Settings (вашего профиля) → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token. Repository access: <b>только этот репозиторий</b>; Permissions → Contents: <b>Read and write</b>. Токен хранится только на этом устройстве.</div>
         <div class="err" role="alert"></div>
         <button class="btn primary" data-check>Проверить и продолжить</button>
       </div>`;
@@ -43,14 +42,15 @@ export async function setupScreen(): Promise<Screen> {
 
   const check = async (b: HTMLButtonElement) => {
     const v = (n: string) => ($<HTMLInputElement>(`[name=${n}]`, form)!.value || '').trim();
-    cfg = { url: v('url') || 'https://gitlab.com', project: v('project').replace(/^https?:\/\/[^/]+\//, '').replace(/\.git$/, ''), token: v('token') };
-    if (!/^https?:\/\//.test(cfg.url)) return showErr('Адрес должен начинаться с https://');
-    if (!cfg.project || !cfg.token) return showErr('Заполните репозиторий и токен');
+    cfg = { repo: normalizeRepo(v('repo')), token: v('token') };
+    if (!/^[\w.-]+\/[\w.-]+$/.test(cfg.repo)) return showErr('Укажите репозиторий в виде «имя/репозиторий»');
+    if (!cfg.token) return showErr('Вставьте токен доступа');
     const done = busy(b, 'Проверяю…');
     try {
-      gl = ctx.backup.gitlab(cfg);
+      gl = ctx.backup.remote(cfg);
       const p = await gl.project();
-      if (p.visibility === 'public') { done(); return showErr('Этот репозиторий открыт всем. Сделайте его приватным (Settings → General → Visibility) и попробуйте снова.'); }
+      if (!p.private) { done(); return showErr('Этот репозиторий открыт всем. Сделайте его приватным (Settings → General → Danger Zone → Change visibility) и попробуйте снова.'); }
+      if (!p.canWrite) { done(); return showErr('У токена нет права записи. Дайте ему Contents: Read and write.'); }
       keyFile = await readKeyFile(gl);
       done();
       keyFile ? stepUnlock(false) : stepPassword();
@@ -145,7 +145,7 @@ export async function setupScreen(): Promise<Screen> {
     }
   };
 
-  stepGitlab();
+  stepRemote();
   el.addEventListener('click', async (e) => {
     const t = e.target as HTMLElement;
     const b = t.closest<HTMLButtonElement>('button');

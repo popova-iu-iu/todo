@@ -1,39 +1,39 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
-import { mockGitlab } from '../unit/mockGitlab';
+import { mockGithub } from '../unit/mockGithub';
 import { newNote, waitSaved } from './helpers';
 
-/** Направить запросы к GitLab в имитацию (репозиторий в памяти). */
-async function routeGitlab(context: BrowserContext, gl: ReturnType<typeof mockGitlab>) {
-  await context.route('https://gitlab.example/**', async (route) => {
+/** Направить запросы к GitHub API в имитацию (репозиторий в памяти). */
+async function routeGithub(context: BrowserContext, gl: ReturnType<typeof mockGithub>) {
+  await context.route('https://api.github.com/**', async (route) => {
     const r = route.request();
+    if (r.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': '*' } });
     const res = await gl.fetchFn(r.url(), { method: r.method(), headers: await r.allHeaders().then((h) => ({ Authorization: h.authorization })), body: r.postData() || undefined });
     await route.fulfill({ status: res.status, body: Buffer.from(await res.arrayBuffer()), headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/octet-stream', 'Access-Control-Allow-Origin': '*' } });
   });
 }
 
-async function fillGitlab(page: import('@playwright/test').Page, token = 'good-token') {
-  await page.locator('[name=url]').fill('https://gitlab.example');
-  await page.locator('[name=project]').fill('https://gitlab.example/me/backup.git');
+async function fillGithub(page: import('@playwright/test').Page, token = 'good-token') {
+  await page.locator('[name=repo]').fill('https://github.com/me/backup.git');
   await page.locator('[name=token]').fill(token);
   await page.locator('[data-check]').click();
 }
 
 test('первая настройка копии и восстановление на новом устройстве', async ({ browser }) => {
   test.setTimeout(60_000);
-  const gl = mockGitlab();
+  const gl = mockGithub();
 
   // --- iPhone: есть заметка, настраиваем копию ---
   const phone = await browser.newContext({ ...test.info().project.use });
-  await routeGitlab(phone, gl);
+  await routeGithub(phone, gl);
   const page = await phone.newPage();
   await newNote(page, 'recipe', 'Сырники как у бабушки', 'творог, яйцо, мука');
   await waitSaved(page);
   await page.goto('./#/settings');
   await page.locator('[data-go="setup"]').click();
 
-  await fillGitlab(page, 'bad');
+  await fillGithub(page, 'bad');
   await expect(page.locator('.err')).toContainText('токен');
-  await fillGitlab(page);
+  await fillGithub(page);
 
   await page.locator('[name=p1]').fill('короткий');
   await page.locator('[name=p2]').fill('другой');
@@ -68,11 +68,11 @@ test('первая настройка копии и восстановление
 
   // --- Mac: новое устройство, вход ключом восстановления ---
   const mac = await browser.newContext({ ...test.info().project.use });
-  await routeGitlab(mac, gl);
+  await routeGithub(mac, gl);
   const p2 = await mac.newPage();
   await p2.goto('./#/settings');
   await p2.locator('[data-restore]').click();
-  await fillGitlab(p2);
+  await fillGithub(p2);
   await expect(p2.locator('.form')).toContainText('уже есть копия');
   await p2.locator('[name=secret]').fill('неверный');
   await p2.locator('[data-unlock]').click();

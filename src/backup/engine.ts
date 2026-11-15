@@ -2,10 +2,10 @@ import type { Store } from '../store/Store';
 import type { Base, Media, Note, Template } from '../store/types';
 import { decryptBytes, decryptJson, encryptBytes, encryptJson, fileName, type KeyFile, type Keys } from '../crypto/keys';
 import { sanitize } from '../sanitize';
-import type { CommitAction, GitLab } from './gitlab';
+import type { CommitAction, GitHub } from './github';
 
 /**
- * Зашифрованный бэкап и синхронизация через репозиторий GitLab.
+ * Зашифрованный бэкап и синхронизация через приватный репозиторий GitHub.
  *
  * В репозитории:
  *   keys.json    — соль и «завёрнутый» ключ (секретов нет);
@@ -37,12 +37,12 @@ export interface SyncResult { uploaded: number; downloaded: number; devices: Rem
 
 const emptyIndex = (): RemoteIndex => ({ v: 1, items: {}, devices: {} });
 
-export async function readKeyFile(gl: GitLab): Promise<KeyFile | null> {
+export async function readKeyFile(gl: GitHub): Promise<KeyFile | null> {
   const b = await gl.read(KEYS_PATH);
   return b ? JSON.parse(dec.decode(b)) : null;
 }
 
-export async function writeKeyFile(gl: GitLab, kf: KeyFile, exists: boolean) {
+export async function writeKeyFile(gl: GitHub, kf: KeyFile, exists: boolean) {
   const actions: CommitAction[] = [{ action: exists ? 'update' : 'create', file_path: KEYS_PATH, content: enc.encode(JSON.stringify(kf, null, 2)) }];
   if (!exists && !(await gl.read('README.md'))) {
     actions.push({ action: 'create', file_path: 'README.md', content: enc.encode('# Зашифрованная копия заметок\n\nЭти файлы зашифрованы на устройстве (AES-256-GCM). Открыть их можно только в приложении «Мои заметки» вашим паролем или ключом восстановления.\n') });
@@ -50,7 +50,7 @@ export async function writeKeyFile(gl: GitLab, kf: KeyFile, exists: boolean) {
   await gl.commit(exists ? 'Новый пароль' : 'Шифрование включено', actions);
 }
 
-async function readIndex(gl: GitLab, keys: Keys, ref?: string): Promise<{ idx: RemoteIndex; exists: boolean }> {
+async function readIndex(gl: GitHub, keys: Keys, ref?: string): Promise<{ idx: RemoteIndex; exists: boolean }> {
   const b = await gl.read(INDEX_PATH, ref);
   if (!b) return { idx: emptyIndex(), exists: false };
   return { idx: await decryptJson<RemoteIndex>(keys, b), exists: true };
@@ -120,7 +120,7 @@ async function localItems(store: Store): Promise<{ k: Kind; item: Base }[]> {
  * Синхронизация: скачать то, что новее на сервере, отправить то, что новее здесь.
  * При конфликте коммита (другое устройство успело раньше) — повторить.
  */
-export async function sync(store: Store, gl: GitLab, keys: Keys, device: DeviceInfo, attempt = 0): Promise<SyncResult> {
+export async function sync(store: Store, gl: GitHub, keys: Keys, device: DeviceInfo, attempt = 0): Promise<SyncResult> {
   const { idx, exists } = await readIndex(gl, keys);
   const local = await localItems(store);
   const localByPath = new Map<string, { k: Kind; item: Base }>();
@@ -202,7 +202,7 @@ function commitMessage(device: string, n: number) {
  * Восстановить всё на версию из истории (ref — коммит). Восстановленное становится «новее»,
  * поэтому следующая копия отправит его как текущую версию.
  */
-export async function restoreVersion(store: Store, gl: GitLab, keys: Keys, ref: string) {
+export async function restoreVersion(store: Store, gl: GitHub, keys: Keys, ref: string) {
   const { idx } = await readIndex(gl, keys, ref);
   const now = Date.now();
   const items: { k: Kind; item: Base }[] = [];
@@ -226,6 +226,6 @@ export async function restoreVersion(store: Store, gl: GitLab, keys: Keys, ref: 
   return items.length;
 }
 
-export async function versions(gl: GitLab) {
+export async function versions(gl: GitHub) {
   return gl.history(INDEX_PATH);
 }

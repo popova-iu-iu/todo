@@ -16,7 +16,7 @@ export async function restoreScreen(): Promise<Screen | null> {
     <div class="scroll"><div class="settings"><div class="set list"><div class="setrow"><div class="tx"><small>Загружаю историю…</small></div></div></div></div></div>
   </section>`);
   const list = $('.list', el)!;
-  versions(ctx.backup.gitlab()).then((vs) => {
+  versions(ctx.backup.remote()).then((vs) => {
     list.innerHTML = vs.length
       ? vs.map((v, i) => `<button class="setrow" data-ref="${esc(v.id)}" data-when="${esc(whenFull(Date.parse(v.created_at)))}"><div class="tx">${whenFull(Date.parse(v.created_at))}${i === 0 ? ' · последняя' : ''}<small>${esc(v.message.split('\n')[0])}</small></div><span class="go" aria-hidden="true">›</span></button>`).join('')
       : '<div class="setrow"><div class="tx"><small>Копий пока нет</small></div></div>';
@@ -36,7 +36,7 @@ export async function restoreScreen(): Promise<Screen | null> {
 function confirm(ref: string, when: string) {
   const box = html(`<div style="display:flex;flex-direction:column;gap:14px">
     <h3>Вернуть заметки на ${esc(when)}?</h3>
-    <div class="t-sub">Все заметки и свои шаблоны станут такими, какими были в этой копии. Нынешнее состояние сохранится в истории GitLab.</div>
+    <div class="t-sub">Все заметки и свои шаблоны станут такими, какими были в этой копии. Нынешнее состояние сохранится в истории GitHub.</div>
     <div class="err" role="alert"></div>
     <button class="btn primary" data-go>Вернуть</button>
     <button class="btn sec" data-cancel>Отмена</button>
@@ -52,7 +52,7 @@ function confirm(ref: string, when: string) {
     try {
       // сначала отправить несохранённое — чтобы оно осталось в истории
       await ctx.backup.runNow();
-      const n = await restoreVersion(ctx.store, ctx.backup.gitlab(), ctx.backup.getKeys()!, ref);
+      const n = await restoreVersion(ctx.store, ctx.backup.remote(), ctx.backup.getKeys()!, ref);
       await ctx.backup.runNow();
       close();
       await navigate('', true);

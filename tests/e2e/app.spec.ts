@@ -241,5 +241,6 @@ test('настройки: бэкап не настроен, карта связ�
   await expect(page.locator('.graph')).toContainText('Пока нет связей');
   await page.locator('[data-back]').click();
   await page.locator('[data-go="setup"]').click();
-  await expect(page.locator('[name=url]')).toHaveValue('https://gitlab.com');
+  await expect(page.locator('h1.h1')).toHaveText('Копия в GitHub');
+  await expect(page.locator('[name=repo]')).toBeVisible();
 });

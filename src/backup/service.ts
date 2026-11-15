@@ -2,7 +2,7 @@ import type { Store } from '../store/Store';
 import type { Keys } from '../crypto/keys';
 import { uid } from '../ui/dom';
 import { sync, syncState, type DeviceInfo, type RemoteIndex, type SyncResult } from './engine';
-import { GitLab, type GitLabConfig } from './gitlab';
+import { GitHub, type GitHubConfig } from './github';
 
 /**
  * Автокопирование: после изменений (через ~20 секунд тишины), при появлении интернета
@@ -28,13 +28,13 @@ export class BackupService {
   private timer: any = 0;
   private running: Promise<SyncResult | null> | null = null;
   private keys: Keys | null = null;
-  private cfg: GitLabConfig | null = null;
+  private cfg: GitHubConfig | null = null;
 
   constructor(private store: Store, private fetchFn?: typeof fetch) {}
 
   async init() {
     const kv = this.store.kv;
-    this.cfg = (await kv.get<GitLabConfig>('gitlab')) || null;
+    this.cfg = (await kv.get<GitHubConfig>('github')) || null;
     this.keys = (await kv.get<Keys>('keys')) || null;
     let device = await kv.get<DeviceInfo>('device');
     if (!device) { device = { id: uid(), name: guessDevice() }; await kv.set('device', device); }
@@ -44,7 +44,7 @@ export class BackupService {
       dirty: !!(await kv.get('dirty')),
       auto: (await kv.get<boolean>('auto')) ?? true,
       devices: (await kv.get<RemoteIndex['devices']>('devices')) || {},
-      project: this.cfg?.project || null,
+      project: this.cfg?.repo || null,
       state: this.configured ? 'idle' : 'off',
     });
     this.store.onChange(() => { if (!syncState.applying) this.markDirty(); });
@@ -56,7 +56,7 @@ export class BackupService {
   }
 
   get configured() { return !!(this.cfg && this.keys); }
-  gitlab(cfg = this.cfg) { return new GitLab(cfg!, this.fetchFn); }
+  remote(cfg = this.cfg) { return new GitHub(cfg!, this.fetchFn); }
 
   subscribe(fn: (s: BackupStatus) => void) {
     this.listeners.add(fn);
@@ -69,19 +69,19 @@ export class BackupService {
   }
 
   /** Сохранить подключение после первой настройки или восстановления. */
-  async connect(cfg: GitLabConfig, keys: Keys) {
+  async connect(cfg: GitHubConfig, keys: Keys) {
     this.cfg = cfg;
     this.keys = keys;
-    await this.store.kv.set('gitlab', cfg);
+    await this.store.kv.set('github', cfg);
     await this.store.kv.set('keys', keys);
-    this.set({ state: 'idle', error: null, project: cfg.project });
+    this.set({ state: 'idle', error: null, project: cfg.repo });
   }
 
   async disconnect() {
     clearTimeout(this.timer);
     this.cfg = null;
     this.keys = null;
-    for (const k of ['gitlab', 'keys', 'lastBackupAt', 'devices']) await this.store.kv.del(k);
+    for (const k of ['github', 'keys', 'lastBackupAt', 'devices']) await this.store.kv.del(k);
     this.set({ state: 'off', lastAt: null, error: null, devices: {}, project: null });
   }
 
@@ -119,7 +119,7 @@ export class BackupService {
         // всё, что изменится во время копирования, попадёт в следующую копию
         await this.store.kv.set('dirty', false);
         this.set({ dirty: false });
-        const r = await sync(this.store, this.gitlab(), this.keys!, this.status.device!);
+        const r = await sync(this.store, this.remote(), this.keys!, this.status.device!);
         const now = Date.now();
         await this.store.kv.set('lastBackupAt', now);
         await this.store.kv.set('devices', r.devices);
