@@ -192,6 +192,8 @@ table.t th{font-family:var(--mono);font-size:11px;text-transform:uppercase;lette
 }
 @media (prefers-reduced-motion:reduce){.side{transition:none}}
 /* ——— телефон: без прокрутки вбок ——— */
+/* кнопки и клавиши, которые держат пальцем: без меню «скопировать» и выделения текста */
+.nosel,.btn,.kb-w,.kb-b{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .zoom-btn{margin-top:10px}
 .zoomer{position:fixed;inset:0;z-index:50;background:var(--paper);display:flex;align-items:center;justify-content:center;overflow:hidden;padding-top:env(safe-area-inset-top,0px)}
 .zoomer .zstage{flex:none;display:flex;align-items:center;justify-content:center}

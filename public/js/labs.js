@@ -128,12 +128,19 @@ function synthLab(spec){
   const whites=[]; for(let m=from;m<=to;m++) if(!NOTE.isBlack(m)) whites.push(m);
   const ww=D.narrow()?Math.max(10,Math.min(34,Math.floor((D.avail()-2)/whites.length))):34, wh=D.narrow()?Math.min(120,ww*4):120;
   const bkw=Math.round(ww*0.65), bkh=Math.round(wh*0.62);
-  const s=D.svg(whites.length*ww+2,wh+4); kb.appendChild(s);
+  const s=D.svg(whites.length*ww+2,wh+4); s.style.touchAction='none'; s.classList.add('nosel'); kb.appendChild(s);
   const xOf={}; whites.forEach((m,i)=>xOf[m]=1+i*ww);
   const keyEls={};
   async function down(m){ await AUDIO.start(); const b=build(); b.voice().triggerAttack(AUDIO.hz(m),undefined,0.8); keyEls[m]&&keyEls[m].classList.add('kb-on'); }
   function up(m){ if(!built) return; const v=built.voice(); if(v===built.poly) v.triggerRelease(AUDIO.hz(m)); else v.triggerRelease(); keyEls[m]&&keyEls[m].classList.remove('kb-on'); }
-  const bindKey=(r,m)=>{ r.addEventListener('pointerdown',e=>{ e.preventDefault(); down(m); }); r.addEventListener('pointerup',()=>up(m)); r.addEventListener('pointerleave',e=>{ if(e.buttons) up(m); }); keyEls[m]=r; };
+  // iPhone включает звук только на отпускании пальца: если звук ещё спит, нота прозвучит при отпускании
+  let pending=null;
+  const bindKey=(r,m)=>{
+    r.addEventListener('pointerdown',e=>{ e.preventDefault(); if(!AUDIO.running()){ pending=m; return; } down(m); });
+    r.addEventListener('pointerup',()=>{ if(pending===m){ pending=null; AUDIO.start().then(()=>{ down(m); setTimeout(()=>up(m),450); }); return; } up(m); });
+    r.addEventListener('pointercancel',()=>{ pending=null; up(m); });
+    r.addEventListener('pointerleave',e=>{ if(e.buttons) up(m); });
+    keyEls[m]=r; };
   whites.forEach(m=>{ const r=D.el('rect',{x:xOf[m],y:2,width:ww,height:wh,rx:3,class:'kb-w'},s); bindKey(r,m); if(m%12===0 && ww>=14) D.el('text',{x:xOf[m]+ww/2,y:wh-6,'text-anchor':'middle',class:'kb-name'},s,NOTE.name(m)); });
   for(let m=from;m<=to;m++){ if(!NOTE.isBlack(m)) continue; const r=D.el('rect',{x:xOf[m-1]+ww-bkw/2,y:2,width:bkw,height:bkh,rx:2,class:'kb-b'},s); bindKey(r,m); }
   // клавиатура компьютера
@@ -261,8 +268,17 @@ function waves(spec){
   Object.keys(shapes).forEach(k=>{ const c=h('div'); const s=D.svg(150,70);
     let d=''; for(let i=0;i<=140;i++){ const t=(i/70)%1; let y; if(k==='sine') y=Math.sin(t*2*Math.PI); else if(k==='triangle') y=t<.25?4*t:t<.75?2-4*t:4*t-4; else if(k==='sawtooth') y=1-2*t; else y=t<.5?1:-1; d+=(i?'L':'M')+(5+i)+' '+(35-y*26); }
     D.el('line',{x1:5,y1:35,x2:145,y2:35,stroke:'var(--grid-strong)'},s); D.el('path',{d,fill:'none',stroke:'var(--accent)','stroke-width':2.5},s);
-    const b=h('button','btn',ICON.play+' '+shapes[k]); b.addEventListener('pointerdown',async()=>{ await AUDIO.start(); if(osc){osc.stop();osc.dispose();} osc=new Tone.Oscillator({frequency:spec.hz||110,type:k,volume:k==='sine'||k==='triangle'?-8:-18}).toDestination().start(); });
-    const stopIt=()=>{ if(osc){ osc.stop(); osc.dispose(); osc=null; } }; b.addEventListener('pointerup',stopIt); b.addEventListener('pointerleave',stopIt);
+    const b=h('button','btn nosel',ICON.play+' '+shapes[k]);
+    // звучит, пока держишь; короткое касание — короткий звук (не меньше 0,4 с); звук никогда не «залипает»
+    let pressed=false, started=0;
+    const play=async()=>{ await AUDIO.start(); if(osc){ osc.stop(); osc.dispose(); } osc=new Tone.Oscillator({frequency:spec.hz||110,type:k,volume:k==='sine'||k==='triangle'?-8:-18}).toDestination().start(); started=Date.now(); if(!pressed) stopIt(); };
+    function stopIt(){ pressed=false; if(!osc) return; const o=osc; osc=null; setTimeout(()=>{ o.stop(); o.dispose(); },Math.max(0,400-(Date.now()-started))); }
+    let wake=false;
+    b.addEventListener('pointerdown',()=>{ pressed=true; if(!AUDIO.running()){ wake=true; return; } play(); });
+    b.addEventListener('pointerup',()=>{ if(wake){ wake=false; pressed=true; play().then(()=>setTimeout(stopIt,0)); return; } stopIt(); });
+    b.addEventListener('pointercancel',()=>{ wake=false; stopIt(); });
+    b.addEventListener('pointerleave',()=>{ if(!wake) stopIt(); });
+    b.addEventListener('contextmenu',e=>e.preventDefault());
     c.appendChild(s); c.appendChild(b); row.appendChild(c); });
   f.appendChild(row); f.appendChild(h('div','fig-cap','Нажми и держи кнопку — звучит, пока держишь.')); addCap(); return f;
 }

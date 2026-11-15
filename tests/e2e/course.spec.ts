@@ -105,3 +105,34 @@ test('большая схема открывается крупно и закр�
   await expect(page.locator('.zoomer')).toHaveCount(0);
   await expect(btn).toBeVisible();
 });
+
+test('кнопки «держи — звучит» не залипают при коротком касании', async ({ page }) => {
+  await page.goto('./');
+  const ids: string[] = await page.evaluate(() => (window as any).BOOK.order);
+  let found = false;
+  for (const id of ids) {
+    await page.evaluate((h) => (location.hash = h), '#' + id);
+    if (await page.locator('main button.btn', { hasText: 'Пила' }).count()) { found = true; break; }
+  }
+  expect(found).toBe(true);
+  await page.evaluate(() => {
+    const T = (window as any).Tone; (window as any).__on = 0;
+    const P = T.Oscillator.prototype; const s = P.start, st = P.stop;
+    P.start = function (...a: any[]) { (window as any).__on++; return s.apply(this, a); };
+    P.stop = function (...a: any[]) { (window as any).__on--; return st.apply(this, a); };
+  });
+  const b = page.locator('main button.btn', { hasText: 'Пила' }).first();
+  await b.scrollIntoViewIfNeeded();
+  // быстрое касание: палец отпущен раньше, чем звук успел включиться
+  await b.dispatchEvent('pointerdown');
+  await b.dispatchEvent('pointerup');
+  await b.dispatchEvent('pointerleave');
+  await expect.poll(() => page.evaluate(() => (window as any).__on), { timeout: 3000 }).toBe(0);
+  // долгое нажатие: звучит, пока держишь
+  await b.dispatchEvent('pointerdown');
+  await expect.poll(() => page.evaluate(() => (window as any).__on)).toBe(1);
+  await page.waitForTimeout(600);
+  expect(await page.evaluate(() => (window as any).__on)).toBe(1);
+  await b.dispatchEvent('pointerup');
+  await expect.poll(() => page.evaluate(() => (window as any).__on)).toBe(0);
+});
