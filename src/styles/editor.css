@@ -7,7 +7,9 @@
 .doc b, .doc strong { font-weight: 700; }
 .doc .e { outline: none; }
 .doc .e:focus { outline: none; }
-[data-ph]:empty::before { content: attr(data-ph); color: #80868E; pointer-events: none; }
+/* серая подсказка; float — чтобы курсор стоял в начале строки, а не после подсказки */
+[data-ph]:empty::before, [data-ph]:has(> br:only-child)::before { content: attr(data-ph); color: #80868E; pointer-events: none; float: left; height: 0; white-space: nowrap; max-width: 100%; overflow: visible; }
+.doc p:empty, .doc h1:empty, .doc h2:empty, .doc .e:empty { min-height: 1.4em; }
 .doc > * { position: relative; z-index: 1; background: #fff; touch-action: pan-y; }
 
 /* ссылка на заметку */

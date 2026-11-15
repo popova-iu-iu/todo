@@ -211,9 +211,13 @@ export function mountEditor(o: EditorOpts): Editor {
       const s = sel();
       if (!s || !s.rangeCount) return;
       const [a] = rangeTops(s.getRangeAt(0));
-      if (!a) return;
-      document.execCommand('formatBlock', false, a.tagName === 'H2' ? 'p' : 'h2');
+      if (!a || (a.tagName !== 'P' && a.tagName !== 'H2')) return;
+      // весь абзац становится заголовком (и обратно) — вручную, execCommand('formatBlock') ведёт себя по-разному
+      const next = document.createElement(a.tagName === 'H2' ? 'p' : 'h2');
+      while (a.firstChild) next.append(a.firstChild);
+      a.replaceWith(next);
       normalize(doc);
+      placeCaret(next, true);
       o.onChange();
     },
     link: async (r) => {

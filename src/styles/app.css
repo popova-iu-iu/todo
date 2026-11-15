@@ -64,7 +64,7 @@ h1, h2, .display { font-family: Manrope, Inter, sans-serif; }
 .shelfcover .art, .cover .art { position: absolute; inset: 0; }
 .shelfcover .art svg, .cover .art svg { width: 100%; height: 100%; display: block; }
 .pill { height: 44px; padding: 0 16px; border-radius: 22px; border: 0; display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 15px; flex: none; }
-.pill.light { background: rgba(255,255,255,.94); color: var(--ink); padding-left: 10px; box-shadow: 0 1px 3px rgba(23,25,28,.08); }
+.pill.light { background: #fff; color: var(--ink); padding-left: 10px; box-shadow: 0 1px 3px rgba(23,25,28,.08); }
 .pill.dark { background: var(--ink); color: #fff; }
 .pill.abs { position: absolute; top: calc(16px + var(--sat)); left: 16px; z-index: 2; }
 .shelfbody { padding: 20px 20px 40px; display: flex; flex-direction: column; gap: 16px; }

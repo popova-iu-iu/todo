@@ -76,12 +76,14 @@ export function normalize(doc: HTMLElement) {
     if (prev && el.dataset.ph && el.dataset.ph === prev.dataset.ph && el.tagName === prev.tagName) el.removeAttribute('data-ph');
     prev = el;
   }
+  // пустой элемент: либо совсем пустой, либо один <br> (в него можно поставить курсор)
   doc.querySelectorAll<HTMLElement>('h1,h2,p,.e').forEach((el) => {
-    if (isEmptyText(el) && el.innerHTML !== '') el.innerHTML = '';
+    if (isEmptyText(el) && el.innerHTML !== '' && el.innerHTML !== '<br>') el.innerHTML = '<br>';
   });
 }
 
 export function placeCaret(el: HTMLElement, atEnd = false) {
+  if (!el.firstChild) el.append(document.createElement('br'));
   const r = document.createRange();
   r.selectNodeContents(el);
   r.collapse(!atEnd);
